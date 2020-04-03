@@ -100,6 +100,13 @@
     [_paymentQueue addPayment:payment];
 }
 
+- (void) buyWithIdentifier:(NSString *)productID {
+    #pragma clang diagnostic push
+    #pragma clang diagnostic ignored "-Wdeprecated"
+    [_paymentQueue addPayment:[SKMutablePayment paymentWithProductIdentifier:productID]];
+    #pragma clang diagnostic pop
+}
+
 #pragma mark - Restore purchases
 
 - (void) restore {

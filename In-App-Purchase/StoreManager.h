@@ -41,6 +41,8 @@ typedef void (^PurchaseNotificationCallback)(StoreManager *observer, id context,
 // Implement the purchase of a product
 - (void) buy:(SKProduct *)product;
 
+- (void) buyWithIdentifier:(NSString *)productID;
+
 // Implement the restoration of previously completed purchases
 - (void) restore;
 

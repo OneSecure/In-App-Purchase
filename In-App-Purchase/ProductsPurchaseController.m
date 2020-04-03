@@ -31,7 +31,7 @@ NSString *const kProductName = @"productName";
         // Custom initialization
         _productsPurchased = [NSMutableDictionary dictionaryWithDictionary:productsPurchased];
         _completion = completion;
-
+        
         _storeManager = [StoreManager sharedInstance];
         _cachedCallback = _storeManager.purchaseNotification;
         _storeManager.purchaseNotification = ^(StoreManager *observer, id context, PurchaseStatus status) {
@@ -42,7 +42,7 @@ NSString *const kProductName = @"productName";
         } else {
             _activityIndicator = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleGray];
         }
-       
+        
 #if 0
         _productCollection = @{
             @"productOneID":    @{ kSubscriptionInterval : @(30*365*24*3600), kProductName : @"Permanent use", },
@@ -91,7 +91,7 @@ NSString *const kProductName = @"productName";
     // Display an alert, otherwise.
     if ([_storeManager canMakePayments]) {
         NSArray *productIds = [_productCollection allKeys];
-
+        
         if (productIds.count == 0) {
             NSAssert(NO, @"%@ - Products count can NOT zero!!!", OsGetMethodName());
             return;
@@ -111,17 +111,18 @@ NSString *const kProductName = @"productName";
 #pragma mark - Handle product request notification
 
 // Update the UI according to the notification result
-- (void) productsRequestFinished:(NSArray *)products error:(NSError*)error {
+- (void) productsRequestFinished:(NSArray<SKProduct *> *)products error:(NSError*)error {
     dispatch_block_t block = ^(void) {
         [self->_activityIndicator stopAnimating];
         self->_productsRecievedFromAppStore = products;
+        NSInteger count = products.count;
         if (error) {
             [self alertWithTitle:NSLocalizedString(@"Warning", nil) message:error.localizedDescription];
             return;
         }
         @try {
-            NSAssert((self->_productsRecievedFromAppStore.count == self.productCollection.count), @"something went wrong");
-            (void)self->_productsRecievedFromAppStore.count;
+            NSAssert((count == self.productCollection.count), @"something went wrong");
+            (void)count;
         } @catch (NSException *exception) {
             [self alertWithTitle:NSLocalizedString(@"Warning", nil) message:exception.reason];
         } @finally {
@@ -138,14 +139,27 @@ NSString *const kProductName = @"productName";
     }
 }
 
-- (NSString *) titleMatchingProductIdentifier:(NSString *)identifier {
-    NSString *productTitle = nil;
+- (SKProduct*) findSKProduct:(NSString*)identifier {
+    SKProduct *found = nil;
     // Iterate through availableProducts to find the product whose productIdentifier
     // property matches identifier, return its localized title when found
     for (SKProduct *product in _productsRecievedFromAppStore) {
         if ([product.productIdentifier isEqualToString:identifier]) {
-            productTitle = product.localizedTitle;
+            found = product;
         }
+    }
+    return found;
+}
+
+- (NSString *) titleMatchingProductIdentifier:(NSString *)identifier {
+    NSString *productTitle = nil;
+    SKProduct *product = [self findSKProduct:identifier];
+    if (product) {
+        productTitle = product.localizedTitle;
+    }
+    if (productTitle == nil) {
+        productTitle = _productCollection[identifier][kProductName];
+        NSAssert(productTitle, @"productTitle");
     }
     return productTitle;
 }
@@ -172,7 +186,7 @@ NSString *const kProductName = @"productName";
             displayedTitle = (title.length > 0) ? title : purchasedID;
             msg = [NSString stringWithFormat:NSLocalizedString(@"'%@' was successfully purchased.", nil), displayedTitle];
             [self alertWithTitle:NSLocalizedString(@"Purchase Status", nil) message:msg];
-
+            
             date = transaction.transactionDate;
             [self purchaseChanged:purchasedID date:date firstBuy:YES];
             break;
@@ -242,7 +256,7 @@ NSString *const kProductName = @"productName";
     if ([oldDate compare:date] == NSOrderedAscending) {
         _productsPurchased[pID] = date;
     }
-
+    
     [self.tableView reloadData];
 }
 
@@ -264,23 +278,29 @@ NSString *const kProductName = @"productName";
 
 #pragma mark - UITableViewDataSource
 
-- (NSInteger) tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section
-{
-    // Return the number of rows in the section.
-    return [_productsRecievedFromAppStore count];
+- (NSInteger) tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section {
+    // This stupid code was caused by Apple Inc., not me.
+    return _productCollection.count; // return [_productsRecievedFromAppStore count];
 }
 
 - (UITableViewCell *) tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {
     UITableViewCell *cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:@"availableProductID"];
-    SKProduct *aProduct = _productsRecievedFromAppStore[indexPath.row];
-    // Show the localized title of the product
-    // Show the product's price in the locale and currency returned by the App Store
-    NSString *price = [NSString stringWithFormat:@"%@ %@",
-                                 [aProduct.priceLocale objectForKey:NSLocaleCurrencySymbol],
-                                 [aProduct price]];
-    cell.textLabel.text = [NSString stringWithFormat:@"%@ - %@", aProduct.localizedTitle, price];
     
-    cell.detailTextLabel.text = aProduct.localizedDescription;
+    NSString *pID = _productCollection.allKeys[indexPath.row];
+    SKProduct *aProduct = [self findSKProduct:pID];
+    if (aProduct) {
+        // Show the localized title of the product
+        // Show the product's price in the locale and currency returned by the App Store
+        NSString *price = [NSString stringWithFormat:@"%@ %@",
+                           [aProduct.priceLocale objectForKey:NSLocaleCurrencySymbol],
+                           [aProduct price]];
+        cell.textLabel.text = [NSString stringWithFormat:@"%@ - %@", aProduct.localizedTitle, price];
+        
+        cell.detailTextLabel.text = aProduct.localizedDescription;
+    } else {
+        cell.textLabel.text = _productCollection[pID][kProductName];
+        cell.detailTextLabel.text = @"Loading information from App Store";
+    }
     
     cell.accessoryType = UITableViewCellAccessoryNone;
     [_productsPurchased enumerateKeysAndObjectsUsingBlock:^(NSString *pid, NSDate *date, BOOL *stop) {
@@ -308,9 +328,14 @@ NSString *const kProductName = @"productName";
 
 // Start a purchase when the user taps a row
 - (void) tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
-    SKProduct *product = (SKProduct *)_productsRecievedFromAppStore[indexPath.row];
-    // Attempt to purchase the tapped product
-    [_storeManager buy:product];
+    NSString *pID = _productCollection.allKeys[indexPath.row];
+    SKProduct *product = [self findSKProduct:pID];
+    if (product) {
+        // Attempt to purchase the tapped product
+        [_storeManager buy:product];
+    } else {
+        [_storeManager buyWithIdentifier:pID];
+    }
 }
 
 #pragma mark -
