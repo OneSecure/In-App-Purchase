@@ -10,10 +10,10 @@
     __weak StoreManager *_storeManager;
     __weak PurchaseNotificationCallback _cachedCallback;
     
-    NSMutableDictionary<NSString *, NSDate *> *_productBoughts; // pruduct name - purchases date pair.
-    NSArray<SKProduct*> *_products;            // SKProduct objects
+    NSMutableDictionary<NSString *, NSDate *> *_productsPurchased; // pruduct identifier - purchases date pair.
+    NSArray<SKProduct*> *_productsRecievedFromAppStore;            // SKProduct objects
     
-    void (^_completion)(NSDictionary *ids);
+    void (^_completion)(NSDictionary<NSString*, NSDate*> *productsPurchased);
     
     UIActivityIndicatorView *_activityIndicator;
 }
@@ -21,10 +21,15 @@
 
 @implementation ProductsPurchaseController
 
-- (instancetype) initWithProductIDs:(NSDictionary *)ids completion:(void (^)(NSDictionary *ids))completion {
+NSString *const kSubscriptionInterval = @"subscriptionInterval";
+NSString *const kProductName = @"productName";
+
+- (instancetype) initWithProductIDs:(NSDictionary<NSString*, NSDate*> *)productsPurchased
+                         completion:(void (^)(NSDictionary<NSString*, NSDate*> *productsPurchased))completion
+{
     if ((self = [super initWithStyle:UITableViewStylePlain])) {
         // Custom initialization
-        _productBoughts = [NSMutableDictionary dictionaryWithDictionary:ids];
+        _productsPurchased = [NSMutableDictionary dictionaryWithDictionary:productsPurchased];
         _completion = completion;
 
         _storeManager = [StoreManager sharedInstance];
@@ -37,6 +42,14 @@
         } else {
             _activityIndicator = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleGray];
         }
+       
+#if 0
+        _productCollection = @{
+            @"productOneID":    @{ kSubscriptionInterval : @(30*365*24*3600), kProductName : @"Permanent use", },
+            @"productTwoID":    @{ kSubscriptionInterval : @(366*24*3600),    kProductName : @"Annual subscription", },
+            @"productThreeID":  @{ kSubscriptionInterval : @(31*24*3600),     kProductName : @"Monthly subscription", },
+        };
+#endif
     }
     return self;
 }
@@ -45,7 +58,7 @@
     [super viewDidDisappear:animated];
     _storeManager.purchaseNotification = _cachedCallback;
     if (_completion) {
-        _completion(_productBoughts);
+        _completion(_productsPurchased);
     }
 }
 
@@ -58,7 +71,8 @@
     self.navigationItem.rightBarButtonItem =
     [[UIBarButtonItem alloc] initWithImage:img style:UIBarButtonItemStylePlain target:self action:@selector(restorePurchase:)];
     
-    _activityIndicator.center = self.view.center;
+    CGPoint center = self.view.center; center.y /= 2;
+    _activityIndicator.center = center;
     [self.view addSubview:_activityIndicator];
     
     [self fetchProductInformation];
@@ -76,7 +90,7 @@
     // Query the App Store for product information if the user is is allowed to make purchases.
     // Display an alert, otherwise.
     if ([_storeManager canMakePayments]) {
-        NSArray *productIds = [_subscriptionIntervals allKeys];
+        NSArray *productIds = [_productCollection allKeys];
 
         if (productIds.count == 0) {
             NSAssert(NO, @"%@ - Products count can NOT zero!!!", OsGetMethodName());
@@ -100,14 +114,14 @@
 - (void) productsRequestFinished:(NSArray *)products error:(NSError*)error {
     dispatch_block_t block = ^(void) {
         [self->_activityIndicator stopAnimating];
-        self->_products = products;
+        self->_productsRecievedFromAppStore = products;
         if (error) {
             [self alertWithTitle:NSLocalizedString(@"Warning", nil) message:error.localizedDescription];
             return;
         }
         @try {
-            NSAssert((self->_products.count == self.subscriptionIntervals.count), @"something went wrong");
-            (void)self->_products.count;
+            NSAssert((self->_productsRecievedFromAppStore.count == self.productCollection.count), @"something went wrong");
+            (void)self->_productsRecievedFromAppStore.count;
         } @catch (NSException *exception) {
             [self alertWithTitle:NSLocalizedString(@"Warning", nil) message:exception.reason];
         } @finally {
@@ -128,7 +142,7 @@
     NSString *productTitle = nil;
     // Iterate through availableProducts to find the product whose productIdentifier
     // property matches identifier, return its localized title when found
-    for (SKProduct *product in _products) {
+    for (SKProduct *product in _productsRecievedFromAppStore) {
         if ([product.productIdentifier isEqualToString:identifier]) {
             productTitle = product.localizedTitle;
         }
@@ -216,7 +230,7 @@
 }
 
 - (void) purchaseChanged:(NSString *)pID date:(NSDate*)date firstBuy:(BOOL)firstBuy {
-    NSDate *oldDate = _productBoughts[pID];
+    NSDate *oldDate = _productsPurchased[pID];
     if ([oldDate isKindOfClass:[NSDate class]] == NO) {
         oldDate = self.originBaseDate;
         if (firstBuy) {
@@ -226,7 +240,7 @@
         }
     }
     if ([oldDate compare:date] == NSOrderedAscending) {
-        _productBoughts[pID] = date;
+        _productsPurchased[pID] = date;
     }
 
     [self.tableView reloadData];
@@ -253,12 +267,12 @@
 - (NSInteger) tableView:(UITableView *)tableView numberOfRowsInSection:(NSInteger)section
 {
     // Return the number of rows in the section.
-    return [_products count];
+    return [_productsRecievedFromAppStore count];
 }
 
 - (UITableViewCell *) tableView:(UITableView *)tableView cellForRowAtIndexPath:(NSIndexPath *)indexPath {
     UITableViewCell *cell = [[UITableViewCell alloc] initWithStyle:UITableViewCellStyleSubtitle reuseIdentifier:@"availableProductID"];
-    SKProduct *aProduct = _products[indexPath.row];
+    SKProduct *aProduct = _productsRecievedFromAppStore[indexPath.row];
     // Show the localized title of the product
     // Show the product's price in the locale and currency returned by the App Store
     NSString *price = [NSString stringWithFormat:@"%@ %@",
@@ -269,7 +283,7 @@
     cell.detailTextLabel.text = aProduct.localizedDescription;
     
     cell.accessoryType = UITableViewCellAccessoryNone;
-    [_productBoughts enumerateKeysAndObjectsUsingBlock:^(NSString *pid, NSDate *date, BOOL *stop) {
+    [_productsPurchased enumerateKeysAndObjectsUsingBlock:^(NSString *pid, NSDate *date, BOOL *stop) {
         if ([pid isEqualToString:aProduct.productIdentifier]) {
             if ([self isPurchased:pid date:date]) {
                 cell.accessoryType = UITableViewCellAccessoryCheckmark;
@@ -282,7 +296,7 @@
 }
 
 - (BOOL) isPurchased:(NSString*)pid date:(NSDate*)date {
-    NSNumber *interval = _subscriptionIntervals[pid];
+    NSNumber *interval = _productCollection[pid][kSubscriptionInterval];
     if ([date isKindOfClass:[NSDate class]] == NO) {
         date = self.originBaseDate;
     }
@@ -294,7 +308,7 @@
 
 // Start a purchase when the user taps a row
 - (void) tableView:(UITableView *)tableView didSelectRowAtIndexPath:(NSIndexPath *)indexPath {
-    SKProduct *product = (SKProduct *)_products[indexPath.row];
+    SKProduct *product = (SKProduct *)_productsRecievedFromAppStore[indexPath.row];
     // Attempt to purchase the tapped product
     [_storeManager buy:product];
 }
