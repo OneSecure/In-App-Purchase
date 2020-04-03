@@ -9,11 +9,11 @@
 /* Begin PBXBuildFile section */
 		3A63BC1324370FCC0071E51E /* In_App_Purchase.h in Headers */ = {isa = PBXBuildFile; fileRef = 3A63BC1124370FCC0071E51E /* In_App_Purchase.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		3A63BC1F2437104C0071E51E /* ProductsPurchaseController.m in Sources */ = {isa = PBXBuildFile; fileRef = 3A63BC192437104C0071E51E /* ProductsPurchaseController.m */; };
-		3A63BC202437104C0071E51E /* StoreManager.h in Headers */ = {isa = PBXBuildFile; fileRef = 3A63BC1A2437104C0071E51E /* StoreManager.h */; };
+		3A63BC202437104C0071E51E /* StoreManager.h in Headers */ = {isa = PBXBuildFile; fileRef = 3A63BC1A2437104C0071E51E /* StoreManager.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		3A63BC212437104C0071E51E /* StoreManager.m in Sources */ = {isa = PBXBuildFile; fileRef = 3A63BC1B2437104C0071E51E /* StoreManager.m */; };
-		3A63BC222437104C0071E51E /* JailbreakDetectTool.h in Headers */ = {isa = PBXBuildFile; fileRef = 3A63BC1C2437104C0071E51E /* JailbreakDetectTool.h */; };
+		3A63BC222437104C0071E51E /* JailbreakDetectTool.h in Headers */ = {isa = PBXBuildFile; fileRef = 3A63BC1C2437104C0071E51E /* JailbreakDetectTool.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		3A63BC232437104C0071E51E /* JailbreakDetectTool.m in Sources */ = {isa = PBXBuildFile; fileRef = 3A63BC1D2437104C0071E51E /* JailbreakDetectTool.m */; };
-		3A63BC242437104C0071E51E /* ProductsPurchaseController.h in Headers */ = {isa = PBXBuildFile; fileRef = 3A63BC1E2437104C0071E51E /* ProductsPurchaseController.h */; };
+		3A63BC242437104C0071E51E /* ProductsPurchaseController.h in Headers */ = {isa = PBXBuildFile; fileRef = 3A63BC1E2437104C0071E51E /* ProductsPurchaseController.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		3A63BC44243718350071E51E /* Media.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 3A63BC43243718350071E51E /* Media.xcassets */; };
 /* End PBXBuildFile section */
 
