@@ -194,7 +194,7 @@ NSString *const kProductName = @"productName";
         case IAPPurchaseFailed:
             NSAssert([transaction isKindOfClass:SKPaymentTransaction.class], @"%@ something went wrong", OsGetMethodName());
             title = [self titleMatchingProductIdentifier:transaction.payment.productIdentifier];
-            msg = [NSString stringWithFormat:@"Purchase of '%@' failed.\nbecause of '%@'", title, transaction.error.localizedDescription];
+            msg = [NSString stringWithFormat:NSLocalizedString(@"Purchase of '%@' failed.\nbecause of '%@'", nil), title, transaction.error.localizedDescription];
             [self alertWithTitle:NSLocalizedString(@"Purchase Status", nil) message:msg];
             break;
             
@@ -294,12 +294,13 @@ NSString *const kProductName = @"productName";
         NSString *price = [NSString stringWithFormat:@"%@ %@",
                            [aProduct.priceLocale objectForKey:NSLocaleCurrencySymbol],
                            [aProduct price]];
-        cell.textLabel.text = [NSString stringWithFormat:@"%@ - %@", aProduct.localizedTitle, price];
+        NSString *localizedTitle = aProduct.localizedTitle?:_productCollection[pID][kProductName];
+        cell.textLabel.text = [NSString stringWithFormat:@"%@ - %@", localizedTitle, price];
         
-        cell.detailTextLabel.text = aProduct.localizedDescription;
+        cell.detailTextLabel.text = aProduct.localizedDescription?:NSLocalizedString(@"No more detail information", nil);
     } else {
         cell.textLabel.text = _productCollection[pID][kProductName];
-        cell.detailTextLabel.text = @"Loading information from App Store";
+        cell.detailTextLabel.text = NSLocalizedString(@"Loading information from App Store", nil);
     }
     
     cell.accessoryType = UITableViewCellAccessoryNone;
